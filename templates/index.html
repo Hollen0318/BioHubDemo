@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Lumos | Bio-Sensing Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        .card { background: #1e293b; border: 1px solid #334155; color: white; border-radius: 12px; }
+        .btn-primary { background: #3b82f6; border: none; }
+        .btn-outline-danger { border-color: #ef4444; color: #ef4444; }
+        #log-window { height: 120px; background: #000; color: #10b981; font-family: monospace; font-size: 0.7rem; overflow-y: scroll; padding: 10px; border-radius: 8px; }
+        .metric-label { font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; }
+        .metric-value { font-size: 1.5rem; font-weight: bold; color: #3b82f6; }
+    </style>
+</head>
+<body class="p-4">
+
+<div class="container-fluid">
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-4">
+            <h2 class="mb-0">LUMOS <span class="badge bg-primary">SERIAL LIVE</span></h2>
+        </div>
+        <div class="col-md-8 d-flex gap-2 justify-content-end">
+            <select id="port-list" class="form-select w-auto bg-dark text-white border-secondary">
+                <option>Scanning ports...</option>
+            </select>
+            <button class="btn btn-primary" onclick="connectDevice()">Connect</button>
+            <button id="rec-btn" class="btn btn-outline-danger" onclick="toggleRecord()" disabled>Start Record</button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card p-3 mb-3">
+                <h6 class="border-bottom pb-2 mb-3">DEVICE SPECS</h6>
+                <div class="mb-2"><div class="metric-label">Manufacturer</div><div>{{info.mfg}}</div></div>
+                <div class="mb-2"><div class="metric-label">Serial ID</div><div>{{info.sn}}</div></div>
+                <div class="mb-2"><div class="metric-label">Storage</div><div>{{info.storage}}</div></div>
+                <div class="mb-2"><div class="metric-label">Battery</div><div class="text-success">{{info.battery}}</div></div>
+                <div class="mb-2"><div class="metric-label">Uptime (Arduino)</div><div id="boot-time">00-00-00.000</div></div>
+            </div>
+            
+            <div class="card p-3">
+                <h6 class="border-bottom pb-2 mb-3">ANALYTICS</h6>
+                <button class="btn btn-sm btn-outline-primary w-100 mb-2" onclick="runLactate()">Predict Lactate</button>
+                <button class="btn btn-sm btn-outline-info w-100" onclick="runSkin()">Skin Tone Analysis</button>
+                <div id="ml-box" class="mt-3" style="display:none;">
+                    <div class="progress mb-1" style="height: 5px;"><div id="ml-bar" class="progress-bar bg-info" style="width: 0%"></div></div>
+                    <small id="ml-status" class="text-info" style="font-size: 0.7rem;"></small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="row mb-3">
+                <div class="col-md-9">
+                    <div class="card p-3">
+                        <h6>Photodiode Spectrum (Live)</h6>
+                        <canvas id="pdChart" height="140"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card p-3 h-100 text-center">
+                        <div class="metric-label">Current LED</div>
+                        <div class="metric-value text-warning" id="led-nm">---</div>
+                        <div class="mt-4 metric-label">Intensity</div>
+                        <div class="metric-value" id="led-int">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-3">
+                <h6 class="mb-2">Serial Output Stream</h6>
+                <div id="log-window"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const socket = io();
+    let isRecording = false;
+
+    // Charting
+    const ctx = document.getElementById('pdChart').getContext('2d');
+    const pdChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ["415", "445", "480", "515", "555", "590", "630", "680", "910", "Clr", "IR"],
+            datasets: [{ label: 'ADC Value', data: [], backgroundColor: '#3b82f6' }]
+        },
+        options: { animation: false, scales: { y: { beginAtZero: true, grid: { color: '#334155' } } } }
+    });
+
+    // Port Refresh
+    async function loadPorts() {
+        const res = await fetch('/get_ports');
+        const data = await res.json();
+        const el = document.getElementById('port-list');
+        el.innerHTML = data.ports.map(p => `<option value="${p}">${p}</option>`).join('') || '<option>No ports found</option>';
+    }
+
+    async function connectDevice() {
+        const port = document.getElementById('port-list').value;
+        const res = await fetch('/connect', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({port}) });
+        const data = await res.json();
+        if(data.status === 'connected') {
+            document.getElementById('rec-btn').disabled = false;
+            alert("Connected to " + port);
+        }
+    }
+
+    async function toggleRecord() {
+        isRecording = !isRecording;
+        const btn = document.getElementById('rec-btn');
+        const res = await fetch('/record', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({action: isRecording ? 'start' : 'stop'}) 
+        });
+        const data = await res.json();
+        btn.innerText = isRecording ? "Stop & Save" : "Start Record";
+        btn.className = isRecording ? "btn btn-danger" : "btn btn-outline-danger";
+        if(!isRecording) alert("Saved to: " + data.path);
+    }
+
+    socket.on('data_update', (msg) => {
+        document.getElementById('boot-time').innerText = msg.boot_time;
+        document.getElementById('led-nm').innerText = [1650, 1550, 1450, 1300, 1250, 1050, 940, 850, 660, 633, 599, 567, 530, 500, 470, 450, 415][msg.led_idx] + "nm";
+        document.getElementById('led-int').innerText = msg.intensity;
+        
+        pdChart.data.datasets[0].data = msg.readings;
+        pdChart.update();
+
+        const log = document.getElementById('log-window');
+        const line = document.createElement('div');
+        line.innerText = `[${msg.sys_time}] PD: ${msg.readings.join('|')} | LED: ${msg.led_idx}`;
+        log.prepend(line);
+        if(log.childNodes.length > 30) log.lastChild.remove();
+    });
+
+    function runLactate() { simulateML(["Intensity Calibration...", "Artifact Removal...", "Processing Absorbance...", "Lactate: 1.4 mmol/L"]); }
+    function runSkin() { simulateML(["Collecting IR/Red Ratio...", "Calculating ITA...", "Melanin Mapping...", "Tone: Type II"]); }
+
+    function simulateML(steps) {
+        const box = document.getElementById('ml-box');
+        const bar = document.getElementById('ml-bar');
+        const status = document.getElementById('ml-status');
+        box.style.display = 'block';
+        let i = 0;
+        let iv = setInterval(() => {
+            bar.style.width = ((i+1)/steps.length)*100 + "%";
+            status.innerText = steps[i];
+            i++;
+            if(i >= steps.length) { clearInterval(iv); setTimeout(()=>box.style.display='none', 3000); }
+        }, 1000);
+    }
+
+    window.onload = loadPorts;
+</script>
+</body>
+</html>
