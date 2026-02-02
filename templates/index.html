@@ -6,34 +6,22 @@
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; overflow-x: hidden; }
         .card { background: #1e293b; border: 1px solid #334155; color: white; border-radius: 12px; }
-        .btn-primary { background: #3b82f6; border: none; }
-        .btn-outline-danger { border-color: #ef4444; color: #ef4444; }
-        
-        /* Log Window Styling */
-        #log-window { height: 150px; background: #000; color: #10b981; font-family: monospace; font-size: 0.7rem; overflow-y: scroll; padding: 10px; border-radius: 8px; }
-        
-        /* Metric Styling */
-        .metric-label { font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; }
-        .metric-value { font-size: 1.5rem; font-weight: bold; color: #3b82f6; }
-        
-        /* Chart Containers */
-        .chart-container-sm { height: 120px; position: relative; }
-        .chart-label-sm { font-size: 0.7rem; text-align: center; color: #94a3b8; margin-bottom: 5px; }
+        #log-window { height: 180px; background: #000; color: #10b981; font-family: monospace; font-size: 0.75rem; overflow-y: auto; padding: 10px; border-radius: 8px; border: 1px solid #334155; }
+        .metric-label { font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; }
+        .matrix-cell { flex: 1; height: 24px; margin: 1px; border-radius: 2px; transition: background 0.1s; background: #0f172a; }
+        .pd-label { width: 80px; font-size: 0.7rem; color: #94a3b8; font-weight: bold; }
+        .led-label { font-size: 0.6rem; text-align: center; color: #64748b; transform: rotate(-45deg); height: 30px; }
     </style>
 </head>
 <body class="p-4">
 
 <div class="container-fluid">
-    <div class="row mb-4 align-items-center">
-        <div class="col-md-4">
-            <h2 class="mb-0">LUMOS <span class="badge bg-primary">DASHBOARD</span></h2>
-        </div>
+    <div class="row mb-3">
+        <div class="col-md-4"><h2>LUMOS <span class="badge bg-primary">V3</span></h2></div>
         <div class="col-md-8 d-flex gap-2 justify-content-end">
-            <select id="port-list" class="form-select w-auto bg-dark text-white border-secondary">
-                <option>Scanning ports...</option>
-            </select>
+            <select id="port-list" class="form-select w-auto bg-dark text-white border-secondary"></select>
             <button class="btn btn-primary" onclick="connectDevice()">Connect</button>
             <button id="rec-btn" class="btn btn-outline-danger" onclick="toggleRecord()" disabled>Start Record</button>
         </div>
@@ -42,230 +30,150 @@
     <div class="row">
         <div class="col-md-3">
             <div class="card p-3 mb-3">
-                <h6 class="border-bottom pb-2 mb-3">DEVICE SPECS</h6>
-                <div class="mb-2"><div class="metric-label">Manufacturer</div><div>{{info.mfg}}</div></div>
+                <h6>DEVICE SPECS</h6>
                 <div class="mb-2"><div class="metric-label">Serial ID</div><div>{{info.sn}}</div></div>
                 <div class="mb-2"><div class="metric-label">Battery</div><div class="text-success">{{info.battery}}</div></div>
                 <div class="mb-2"><div class="metric-label">Uptime</div><div id="boot-time">00-00-00.000</div></div>
             </div>
-            
             <div class="card p-3 mb-3">
-                <h6 class="border-bottom pb-2 mb-3">ANALYTICS</h6>
-                <button class="btn btn-sm btn-outline-primary w-100 mb-2" onclick="runLactate()">Predict Lactate</button>
-                <button class="btn btn-sm btn-outline-info w-100" onclick="runSkin()">Skin Tone Analysis</button>
-                <div id="ml-box" class="mt-3" style="display:none;">
-                    <div class="progress mb-1" style="height: 5px;"><div id="ml-bar" class="progress-bar bg-info" style="width: 0%"></div></div>
-                    <small id="ml-status" class="text-info" style="font-size: 0.7rem;"></small>
-                </div>
-            </div>
-
-            <div class="card p-3">
-                <h6 class="mb-2">Serial Log</h6>
+                <h6>SERIAL LOG (RAW)</h6>
                 <div id="log-window"></div>
             </div>
         </div>
 
         <div class="col-md-9">
-            
             <div class="card p-3 mb-3">
-                <h5 class="text-info mb-3">Absorbance and Intensity Calibration</h5>
-                <div class="row">
-                    <div class="col-md-12 mb-4">
-                        <h6>Live Reconstructed Spectrum (Single PD Selection)</h6>
-                        <canvas id="spectrumChart" height="80"></canvas>
-                    </div>
-                    <div class="col-md-12">
-                        <h6>LED Intensity Profile (PWM)</h6>
-                        <canvas id="intensityChart" height="60"></canvas>
-                    </div>
-                </div>
+                <h6 class="text-info">ABSORBANCE & INTENSITY SPECTRUM</h6>
+                <canvas id="spectrumChart" height="90"></canvas>
+                <canvas id="intensityChart" height="50" class="mt-2"></canvas>
             </div>
 
             <div class="card p-3">
-                <h5 class="text-info mb-3">Multi-Wavelength Signal (17 LEDs x 11 PDs)</h5>
-                <div class="row" id="grid-container">
-                    </div>
+                <h6 class="text-info mb-3">MULTI-WAVELENGTH SIGNAL MATRIX (11 PD x 17 LED)</h6>
+                <div id="matrix-container">
+                    <div class="d-flex mb-2" id="led-headers" style="padding-left: 80px;"></div>
+                    <div id="matrix-grid" class="d-flex flex-column-reverse"></div>
+                </div>
             </div>
-
         </div>
     </div>
 </div>
 
 <script>
     const socket = io();
-    let isRecording = false;
-
-    // --- CONFIGURATION ---
-    // The Arduino sends LEDs in this order (Index 0 to 16)
-    const LED_SEQUENCE_RAW = [1650, 1550, 1450, 1300, 1250, 1050, 940, 850, 660, 633, 599, 567, 530, 500, 470, 450, 415];
-    
-    // The mapping of which PD index (0-10) to use for each LED index (0-16)
-    // Example: LED_Index 0 (1650nm) uses PD_Index 10.
+    const LED_WAVELENGTHS = [1650, 1550, 1450, 1300, 1250, 1050, 940, 850, 660, 633, 599, 567, 530, 500, 470, 450, 415];
+    const SORTED_LEDS = [...LED_WAVELENGTHS].reverse(); // 415 -> 1650
+    const PD_LABELS = ["415nm", "445nm", "480nm", "515nm", "555nm", "590nm", "630nm", "680nm", "910nm", "Clear", "Infrared"];
     const PD_MAPPING = [10, 10, 10, 10, 10, 10, 8, 8, 7, 6, 5, 4, 3, 3, 2, 1, 0];
 
-    // Standard PD Channel Labels (for the grid charts)
-    const PD_LABELS = ["415", "445", "480", "515", "555", "590", "630", "680", "910", "Clr", "IR"];
+    // --- UTILITY: Dual Scale Normalization ---
+    function normalize(val, wavelength) {
+        if (wavelength >= 1050) {
+            // Scale 0-25500 down to 0-950
+            return (val / 25500) * 950;
+        }
+        return val; // Keep 0-25500 for visible range
+    }
 
-    // --- PREPARE DATA STRUCTURES ---
-    // We want the main graph X-axis to be sorted: 415 -> 1650.
-    // We create a visual mapping. 
-    // visualIndex 0 = 415nm (which is Arduino LED Index 16)
-    // visualIndex 16 = 1650nm (which is Arduino LED Index 0)
-    const SORTED_LABELS = [...LED_SEQUENCE_RAW].reverse(); // [415, 450 ... 1650]
-    
-    // Initialize persistent data arrays (length 17) filled with 0
-    let spectrumData = new Array(17).fill(0);
-    let intensityData = new Array(17).fill(0);
-
-    // --- CHART INITIALIZATION ---
-
-    // 1. Reconstructed Spectrum Chart
+    // --- INITIALIZE CHARTS ---
     const ctxSpec = document.getElementById('spectrumChart').getContext('2d');
     const spectrumChart = new Chart(ctxSpec, {
         type: 'line',
         data: {
-            labels: SORTED_LABELS.map(x => x + "nm"),
-            datasets: [{
-                label: 'Matched PD Response',
-                data: spectrumData,
-                borderColor: '#22d3ee', // Cyan
-                backgroundColor: 'rgba(34, 211, 238, 0.2)',
-                fill: true,
-                tension: 0.3,
-                pointRadius: 4
-            }]
+            labels: SORTED_LEDS.map(l => l + "nm"),
+            datasets: [{ label: 'Reconstructed Spectrum', data: new Array(17).fill(0), borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 }]
         },
-        options: {
-            animation: false,
-            scales: { y: { beginAtZero: true, grid: { color: '#334155' } }, x: { grid: { display: false } } },
-            plugins: { legend: { display: false } }
-        }
+        options: { animation: false, scales: { y: { beginAtZero: true, grid: { color: '#334155' } } } }
     });
 
-    // 2. Intensity Calibration Chart
     const ctxInt = document.getElementById('intensityChart').getContext('2d');
     const intensityChart = new Chart(ctxInt, {
         type: 'bar',
         data: {
-            labels: SORTED_LABELS.map(x => x + "nm"),
-            datasets: [{
-                label: 'LED Intensity (PWM)',
-                data: intensityData,
-                backgroundColor: '#a855f7', // Purple
-                borderRadius: 4
-            }]
+            labels: SORTED_LEDS.map(l => l + "nm"),
+            datasets: [{ label: 'LED Intensity (PWM)', data: new Array(17).fill(0), backgroundColor: '#a855f7' }]
         },
-        options: {
-            animation: false,
-            scales: { y: { min:0, max: 4096, grid: { color: '#334155' } }, x: { grid: { display: false } } },
-            plugins: { legend: { display: false } }
-        }
+        options: { animation: false, scales: { y: { max: 4096, grid: { color: '#334155' } } } }
     });
 
-    // 3. Multi-Wavelength Grid Generator
-    const gridContainer = document.getElementById('grid-container');
-    const gridCharts = []; // Store chart instances
+    // --- INITIALIZE MATRIX ---
+    const gridEl = document.getElementById('matrix-grid');
+    const headerEl = document.getElementById('led-headers');
+    const matrixCells = []; // 2D Reference [pd_idx][visual_led_idx]
 
-    // We generate 17 small charts. 
-    // Note: We render them in the SORTED order (415->1650) for visual consistency with the main graph.
-    // i represents the visual index (0 to 16)
-    for (let i = 0; i < 17; i++) {
-        // Calculate the actual Arduino LED Index required for this slot
-        // Visual 0 (415nm) is LED Index 16. Visual 16 (1650nm) is LED Index 0.
-        // Formula: led_idx = 16 - visual_i
-        const ledWavelength = SORTED_LABELS[i];
-        
-        // Create HTML wrapper
-        const col = document.createElement('div');
-        col.className = 'col-6 col-md-4 col-lg-2 mb-3'; // Responsive grid
-        col.innerHTML = `
-            <div class="card p-2 h-100">
-                <div class="chart-label-sm">LED ${ledWavelength}nm</div>
-                <div class="chart-container-sm">
-                    <canvas id="gridChart-${i}"></canvas>
-                </div>
-            </div>
-        `;
-        gridContainer.appendChild(col);
+    // Create LED Labels at top
+    SORTED_LEDS.forEach(wl => {
+        const div = document.createElement('div');
+        div.className = "flex-grow-1 led-label";
+        div.innerText = wl;
+        headerEl.appendChild(div);
+    });
 
-        // Instantiate Chart
-        const ctxGrid = document.getElementById(`gridChart-${i}`).getContext('2d');
-        const gc = new Chart(ctxGrid, {
-            type: 'bar',
-            data: {
-                labels: ["415", "445", "480", "515", "555", "590", "630", "680", "910", "C", "I"],
-                datasets: [{
-                    data: new Array(11).fill(0), // Init with zeros
-                    backgroundColor: i === 16 ? '#ef4444' : '#3b82f6', // Highlight 1650nm differently or just blue
-                    barPercentage: 0.9
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                plugins: { legend: { display: false }, tooltip: { enabled: false } }, // Disable tooltips for performance
-                scales: {
-                    x: { display: false }, // Hide x labels to save space
-                    y: { display: false, beginAtZero: true, max: 60000 } // Fixed scale for visual comparison
-                }
-            }
+    // Create PD Rows (Bottom to Top)
+    PD_LABELS.forEach((pdName, pdIdx) => {
+        const row = document.createElement('div');
+        row.className = "d-flex align-items-center";
+        const label = document.createElement('div');
+        label.className = "pd-label";
+        label.innerText = pdName;
+        row.appendChild(label);
+
+        const rowCells = [];
+        SORTED_LEDS.forEach(() => {
+            const cell = document.createElement('div');
+            cell.className = "matrix-cell";
+            row.appendChild(cell);
+            rowCells.push(cell);
         });
-        gridCharts.push(gc);
-    }
+        gridEl.appendChild(row);
+        matrixCells.push(rowCells);
+    });
 
-
-    // --- SOCKET DATA HANDLING ---
-
+    // --- DATA HANDLING ---
     socket.on('data_update', (msg) => {
-        // msg schema: { boot_time, led_idx (0-16), intensity, readings: [11 ints], sys_time }
+        const rawIdx = msg.led_idx; // 0 (1650) to 16 (415)
+        const currentWl = LED_WAVELENGTHS[rawIdx];
+        const visualIdx = 16 - rawIdx; // Map to 0 (415) to 16 (1650)
 
-        const rawLedIndex = msg.led_idx; // 0 (1650nm) to 16 (415nm)
-        
-        // 1. Determine Visual Index for Main Graphs (Reverse Logic)
-        // If raw is 0 (1650), visual is 16. If raw is 16 (415), visual is 0.
-        const visualIndex = 16 - rawLedIndex;
-
-        // 2. Update Reconstructed Spectrum Data
-        // Logic: specific PD for this LED
-        const pdTargetIndex = PD_MAPPING[rawLedIndex];
-        const specificReading = msg.readings[pdTargetIndex];
-        
-        spectrumChart.data.datasets[0].data[visualIndex] = specificReading;
-        spectrumChart.update('none'); // 'none' mode improves performance
-
-        // 3. Update Intensity Data
-        intensityChart.data.datasets[0].data[visualIndex] = msg.intensity;
+        // 1. Update Intensity (Show for all)
+        intensityChart.data.datasets[0].data[visualIdx] = msg.intensity;
         intensityChart.update('none');
 
-        // 4. Update Specific Grid Chart
-        // gridCharts array corresponds to visualIndex (415 -> 1650)
-        if(gridCharts[visualIndex]) {
-            gridCharts[visualIndex].data.datasets[0].data = msg.readings;
-            gridCharts[visualIndex].update('none');
-        }
+        // 2. Update Spectrum (Using normalized target PD)
+        const targetPdVal = msg.readings[PD_MAPPING[rawIdx]];
+        spectrumChart.data.datasets[0].data[visualIdx] = normalize(targetPdVal, currentWl);
+        spectrumChart.update('none');
 
-        // 5. Update UI Metrics
+        // 3. Update Matrix Grid
+        msg.readings.forEach((val, pdIdx) => {
+            const scaled = normalize(val, currentWl);
+            const limit = currentWl >= 1050 ? 950 : 25500;
+            const opacity = Math.min(scaled / limit, 1.0);
+            
+            // NIR LEDs (1050+) show Red heatmap, Visible show Blue heatmap
+            const color = currentWl >= 1050 ? `rgba(239, 68, 68, ${opacity})` : `rgba(59, 130, 246, ${opacity})`;
+            matrixCells[pdIdx][visualIdx].style.background = color;
+        });
+
+        // 4. Update UI
         document.getElementById('boot-time').innerText = msg.boot_time;
-        updateLog(msg);
+        updateLog(msg.raw);
     });
 
-    function updateLog(msg) {
+    function updateLog(txt) {
         const log = document.getElementById('log-window');
         const line = document.createElement('div');
-        // Calculate Wavelength for text log
-        const wl = LED_SEQUENCE_RAW[msg.led_idx];
-        line.innerText = `[${msg.sys_time}] LED ${wl}nm | Int: ${msg.intensity} | PD_Map_Val: ${msg.readings[PD_MAPPING[msg.led_idx]]}`;
+        line.innerText = txt;
         log.prepend(line);
-        if(log.childNodes.length > 20) log.lastChild.remove();
+        if(log.childNodes.length > 50) log.lastChild.remove();
     }
 
-    // --- STANDARD FETCH FUNCTIONS (Ports/Connection) ---
+    // Port Management
     async function loadPorts() {
         const res = await fetch('/get_ports');
         const data = await res.json();
         const el = document.getElementById('port-list');
-        el.innerHTML = data.ports.map(p => `<option value="${p}">${p}</option>`).join('') || '<option>No ports found</option>';
+        el.innerHTML = data.ports.map(p => `<option value="${p}">${p}</option>`).join('') || '<option>No Ports</option>';
     }
 
     async function connectDevice() {
@@ -274,39 +182,18 @@
         const data = await res.json();
         if(data.status === 'connected') {
             document.getElementById('rec-btn').disabled = false;
-            alert("Connected to " + port);
+            alert("Connected!");
         }
     }
 
     async function toggleRecord() {
-        isRecording = !isRecording;
         const btn = document.getElementById('rec-btn');
-        const res = await fetch('/record', { 
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'}, 
-            body: JSON.stringify({action: isRecording ? 'start' : 'stop'}) 
-        });
+        const action = btn.innerText.includes("Start") ? "start" : "stop";
+        const res = await fetch('/record', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action}) });
         const data = await res.json();
-        btn.innerText = isRecording ? "Stop & Save" : "Start Record";
-        btn.className = isRecording ? "btn btn-danger" : "btn btn-outline-danger";
-        if(!isRecording) alert("Saved to: " + data.path);
-    }
-
-    // Simulation dummies
-    function runLactate() { simulateML(["Intensity Calibration...", "Artifact Removal...", "Processing...", "Lactate: 1.4 mmol/L"]); }
-    function runSkin() { simulateML(["Collecting IR/Red Ratio...", "Calculating ITA...", "Tone: Type II"]); }
-    function simulateML(steps) {
-        const box = document.getElementById('ml-box');
-        const bar = document.getElementById('ml-bar');
-        const status = document.getElementById('ml-status');
-        box.style.display = 'block';
-        let i = 0;
-        let iv = setInterval(() => {
-            bar.style.width = ((i+1)/steps.length)*100 + "%";
-            status.innerText = steps[i];
-            i++;
-            if(i >= steps.length) { clearInterval(iv); setTimeout(()=>box.style.display='none', 3000); }
-        }, 800);
+        btn.innerText = action === "start" ? "Stop Record" : "Start Record";
+        btn.className = action === "start" ? "btn btn-danger" : "btn btn-outline-danger";
+        if(action === "stop") alert("File: " + data.path);
     }
 
     window.onload = loadPorts;

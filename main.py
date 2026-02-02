@@ -9,9 +9,6 @@ from flask_socketio import SocketIO
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
-# --- Constants & Config ---
-LED_WAVELENGTHS = [1650, 1550, 1450, 1300, 1250, 1050, 940, 850, 660, 633, 599, 567, 530, 500, 470, 450, 415]
-PD_LABELS = ["415nm", "445nm", "480nm", "515nm", "555nm", "590nm", "630nm", "680nm", "910nm", "Clear", "Infrared"]
 
 DEVICE_INFO = {
     "programmed": "2024-08-15",
@@ -30,26 +27,23 @@ class LumosCore:
         self.recording = False
         self.buffer = []
         self.thread = None
-        self.port_name = ""
 
     def list_available_ports(self):
-        # Direct parity with your Tkinter port refresh logic
         return [port.device for port in serial.tools.list_ports.comports()]
 
     def parse_arduino_data(self, line):
         try:
-            # 00-00-04.094,0,0,0,1,0,0,0,0,0,1,167,[0],1000;
+            # Expected: 00-00-04.094,0,0,0,1,0,0,0,0,0,1,167,[0],1000;
             clean = line.strip().rstrip(';')
             parts = clean.split(',')
-            if len(parts) < 14: 
-                print(f"Stop here?")
-                return None
-            # print(f"Parts are {parts}")
+            if len(parts) < 14: return None
+            
             return {
                 "boot_time": parts[0],
                 "readings": [int(x) for x in parts[1:12]],
                 "led_idx": int(parts[12].strip('[]')),
-                "intensity": int(parts[13])
+                "intensity": int(parts[13]),
+                "raw": line # Keep raw for the log
             }
         except: return None
 
@@ -61,17 +55,16 @@ class LumosCore:
                         line = self.ser.readline().decode('utf-8', errors='replace').strip()
                         parsed = self.parse_arduino_data(line)
                         if parsed:
-                            # Add a small print here to verify Python is actually seeing data
-                            # print(f"Sending to JS: {parsed}") 
                             socketio.emit('data_update', parsed)
+                            if self.recording:
+                                self.buffer.append(line)
                 except Exception as e:
                     print(f"Serial Read Error: {e}")
-            time.sleep(0.01) # Prevent CPU spiking
+            time.sleep(0.005)
 
     def connect(self, port):
         try:
             self.ser = serial.Serial(port, 115200, timeout=1)
-            self.port_name = port
             self.running = True
             self.thread = threading.Thread(target=self._read_worker, daemon=True)
             self.thread.start()
@@ -83,12 +76,10 @@ class LumosCore:
     def stop_and_save(self):
         self.recording = False
         if not self.buffer: return None
-        
         folder = "Lumos_Records"
         os.makedirs(folder, exist_ok=True)
         fname = f"Recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
         path = os.path.join(folder, fname)
-        
         with open(path, 'w') as f:
             for line in self.buffer:
                 f.write(line + "\n")
@@ -108,8 +99,7 @@ def get_ports():
 @app.route('/connect', methods=['POST'])
 def connect():
     port = request.json.get('port')
-    if lumos.connect(port):
-        return jsonify({"status": "connected"})
+    if lumos.connect(port): return jsonify({"status": "connected"})
     return jsonify({"status": "failed"})
 
 @app.route('/record', methods=['POST'])
