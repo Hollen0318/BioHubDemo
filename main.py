@@ -8,8 +8,7 @@ from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO
 
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
-
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 # --- Constants & Config ---
 LED_WAVELENGTHS = [1650, 1550, 1450, 1300, 1250, 1050, 940, 850, 660, 633, 599, 567, 530, 500, 470, 450, 415]
 PD_LABELS = ["415nm", "445nm", "480nm", "515nm", "555nm", "590nm", "630nm", "680nm", "910nm", "Clear", "Infrared"]
@@ -42,8 +41,10 @@ class LumosCore:
             # 00-00-04.094,0,0,0,1,0,0,0,0,0,1,167,[0],1000;
             clean = line.strip().rstrip(';')
             parts = clean.split(',')
-            if len(parts) < 14: return None
-            
+            if len(parts) < 14: 
+                print(f"Stop here?")
+                return None
+            # print(f"Parts are {parts}")
             return {
                 "boot_time": parts[0],
                 "readings": [int(x) for x in parts[1:12]],
@@ -56,20 +57,16 @@ class LumosCore:
         while self.running:
             if self.ser and self.ser.is_open:
                 try:
-                    if self.ser.in_waiting:
+                    if self.ser.in_waiting > 0:
                         line = self.ser.readline().decode('utf-8', errors='replace').strip()
                         parsed = self.parse_arduino_data(line)
                         if parsed:
-                            # Mimicking your Tkinter timestamping
-                            ts = datetime.now().strftime('%Y-%m-%d-%H:%M:%S.%f')[:-3]
-                            parsed['sys_time'] = ts
-                            
-                            if self.recording:
-                                self.buffer.append(f"{ts}: {line}")
-                            
+                            # Add a small print here to verify Python is actually seeing data
+                            # print(f"Sending to JS: {parsed}") 
                             socketio.emit('data_update', parsed)
-                except: pass
-            time.sleep(0.001)
+                except Exception as e:
+                    print(f"Serial Read Error: {e}")
+            time.sleep(0.01) # Prevent CPU spiking
 
     def connect(self, port):
         try:
@@ -127,4 +124,4 @@ def record():
         return jsonify({"msg": "Saved", "path": path})
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, port=5000)
+    socketio.run(app, debug=True, port=5001)
