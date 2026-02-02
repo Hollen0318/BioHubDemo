@@ -87,6 +87,97 @@
         }
         .axis-title-led { padding-left: 120px; margin-bottom: 6px; }
         .axis-title-pd  { width: 90px; text-align: left; }
+
+        /* ----------------------------
+           NEW: Prediction panel styling
+           ---------------------------- */
+        .pred-card {
+            border-radius: 14px;
+            background: linear-gradient(180deg, rgba(30,41,59,1) 0%, rgba(15,23,42,1) 100%);
+            border: 1px solid #334155;
+            box-shadow: 0 10px 22px rgba(0,0,0,0.25);
+        }
+        .pred-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .pred-title {
+            font-weight: 800;
+            letter-spacing: 0.2px;
+            font-size: 0.95rem;
+        }
+        .pred-sub {
+            color: #94a3b8;
+            font-size: 0.75rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .pred-body {
+            background: rgba(2,6,23,0.35);
+            border: 1px solid rgba(51,65,85,0.6);
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .pred-spinner-wrap {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 10px;
+            padding: 14px 0 6px 0;
+        }
+        .pred-steps {
+            margin: 10px 0 0 0;
+            padding: 0;
+            list-style: none;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+        }
+        .pred-steps li {
+            padding: 6px 10px;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            margin-bottom: 6px;
+            background: rgba(15, 23, 42, 0.35);
+        }
+        .pred-steps li.active {
+            border-color: rgba(59,130,246,0.6);
+            background: rgba(59,130,246,0.12);
+            color: #e2e8f0;
+        }
+        .pred-steps li.done {
+            border-color: rgba(34,197,94,0.45);
+            background: rgba(34,197,94,0.10);
+            color: #bbf7d0;
+        }
+        .pred-result {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(51,65,85,0.6);
+            background: rgba(2,6,23,0.45);
+            display: none;
+        }
+        .pred-result .k {
+            color: #94a3b8;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .pred-result .v {
+            font-size: 1.1rem;
+            font-weight: 800;
+            margin-top: 2px;
+        }
+        .pred-meta {
+            color: #94a3b8;
+            font-size: 0.8rem;
+            margin-top: 4px;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body class="p-4">
@@ -147,6 +238,92 @@
                         <td class="spec-val" id="boot-time">00-00-00.000</td>
                     </tr>
                 </table>
+            </div>
+
+            <!-- ------------------------------------
+                 NEW: Lactate Prediction panel
+                 ------------------------------------ -->
+            <div class="card p-3 mb-3 pred-card">
+                <div class="pred-header">
+                    <div>
+                        <div class="pred-title">Lactate Prediction</div>
+                        <div class="pred-sub">1-minute capture • placeholder</div>
+                    </div>
+                    <button id="btn-lactate" class="btn btn-primary btn-sm" onclick="startLactatePrediction()">
+                        Predict Lactate
+                    </button>
+                </div>
+
+                <div class="pred-body">
+                    <div id="lactate-spinner" class="pred-spinner-wrap">
+                        <div class="spinner-border text-info" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div class="w-100">
+                            <div class="progress" style="height: 10px; background: rgba(148,163,184,0.15);">
+                                <div id="lactate-progress" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div id="lactate-progress-text" class="text-center mt-2" style="color:#94a3b8; font-size:0.85rem;">
+                                0%
+                            </div>
+                            <div id="lactate-capture-text" class="text-center" style="color:#64748b; font-size:0.8rem;">
+                                <!-- capture timer text -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <ul id="lactate-steps" class="pred-steps"></ul>
+
+                    <div id="lactate-result" class="pred-result">
+                        <div class="k">Predicted Lactate</div>
+                        <div id="lactate-value" class="v">—</div>
+                        <div id="lactate-note" class="pred-meta"></div>
+                        <div id="lactate-file" class="pred-meta"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ------------------------------------
+                 NEW: Skin Tone Prediction panel
+                 ------------------------------------ -->
+            <div class="card p-3 mb-3 pred-card">
+                <div class="pred-header">
+                    <div>
+                        <div class="pred-title">Skin Tone Prediction</div>
+                        <div class="pred-sub">1-minute capture • placeholder</div>
+                    </div>
+                    <button id="btn-skin" class="btn btn-outline-info btn-sm" onclick="startSkinTonePrediction()">
+                        Predict Skin Tone
+                    </button>
+                </div>
+
+                <div class="pred-body">
+                    <div id="skin-spinner" class="pred-spinner-wrap">
+                        <div class="spinner-border text-info" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div class="w-100">
+                            <div class="progress" style="height: 10px; background: rgba(148,163,184,0.15);">
+                                <div id="skin-progress" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div id="skin-progress-text" class="text-center mt-2" style="color:#94a3b8; font-size:0.85rem;">
+                                0%
+                            </div>
+                            <div id="skin-capture-text" class="text-center" style="color:#64748b; font-size:0.8rem;">
+                                <!-- capture timer text -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <ul id="skin-steps" class="pred-steps"></ul>
+
+                    <div id="skin-result" class="pred-result">
+                        <div class="k">Predicted Skin Tone</div>
+                        <div id="skin-value" class="v">—</div>
+                        <div id="skin-note" class="pred-meta"></div>
+                        <div id="skin-file" class="pred-meta"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -319,7 +496,7 @@
     // spacer to align with range-label column
     const rangeSpacer = document.createElement('div');
     rangeSpacer.className = "range-label";
-    rangeSpacer.innerText = ""; 
+    rangeSpacer.innerText = "";
     pdTitleRow.appendChild(rangeSpacer);
 
     // spacer to align with matrix cells
@@ -450,6 +627,185 @@
         btn.className = action === "start" ? "btn btn-danger" : "btn btn-outline-danger";
         if (action === "stop") alert("File: " + data.path);
     }
+
+    // -------------------------------------------------
+    // NEW: Prediction UI + Socket.IO progress handlers
+    // -------------------------------------------------
+    const LACTATE_STEPS = [
+        "Start Predicting Lactate",
+        "Removing Motion Artifacts",
+        "Intensity Calibration",
+        "Incident Light Measurement",
+        "Ambient Light Cancellation",
+        "Absorbance Feature Extraction",
+        "Skin Tone Calibration",
+        "Data Normalization",
+        "Passing into Machine Learning Model",
+        "Complete"
+    ];
+
+    const SKIN_STEPS = [
+        "Start Predicting Skin Tone",
+        "Removing Motion Artifacts",
+        "Intensity Calibration",
+        "Incident Light Measurement",
+        "Ambient Light Cancellation",
+        "Reflectance Feature Extraction",
+        "Data Normalization",
+        "Passing into Machine Learning Model",
+        "Complete"
+    ];
+
+    function renderSteps(kind) {
+        const steps = (kind === "lactate") ? LACTATE_STEPS : SKIN_STEPS;
+        const ul = document.getElementById(kind === "lactate" ? "lactate-steps" : "skin-steps");
+        ul.innerHTML = "";
+        steps.forEach(s => {
+            const li = document.createElement("li");
+            li.innerText = s;
+            ul.appendChild(li);
+        });
+    }
+
+    function setActiveStep(kind, idx) {
+        const ul = document.getElementById(kind === "lactate" ? "lactate-steps" : "skin-steps");
+        const items = [...ul.querySelectorAll("li")];
+        items.forEach((li, i) => {
+            li.classList.remove("active");
+            li.classList.remove("done");
+            if (i < idx) li.classList.add("done");
+            if (i === idx) li.classList.add("active");
+        });
+    }
+
+    function showSpinner(kind, show) {
+        const spinner = document.getElementById(kind === "lactate" ? "lactate-spinner" : "skin-spinner");
+        spinner.style.display = show ? "flex" : "none";
+    }
+
+    function setProgress(kind, pct) {
+        const bar = document.getElementById(kind === "lactate" ? "lactate-progress" : "skin-progress");
+        const txt = document.getElementById(kind === "lactate" ? "lactate-progress-text" : "skin-progress-text");
+        bar.style.width = pct + "%";
+        txt.innerText = pct + "%";
+    }
+
+    function setCaptureText(kind, elapsed, total) {
+        const el = document.getElementById(kind === "lactate" ? "lactate-capture-text" : "skin-capture-text");
+        el.innerText = `Recording data: ${elapsed}s / ${total}s`;
+    }
+
+    function resetResult(kind) {
+        const box = document.getElementById(kind === "lactate" ? "lactate-result" : "skin-result");
+        box.style.display = "none";
+        if (kind === "lactate") {
+            document.getElementById("lactate-value").innerText = "—";
+            document.getElementById("lactate-note").innerText = "";
+            document.getElementById("lactate-file").innerText = "";
+        } else {
+            document.getElementById("skin-value").innerText = "—";
+            document.getElementById("skin-note").innerText = "";
+            document.getElementById("skin-file").innerText = "";
+        }
+    }
+
+    function showResult(kind, payload) {
+        const box = document.getElementById(kind === "lactate" ? "lactate-result" : "skin-result");
+        box.style.display = "block";
+
+        if (kind === "lactate") {
+            const p = payload.prediction || {};
+            const val = (p.value === null || p.value === undefined) ? "—" : `${p.value} ${p.units || ""}`.trim();
+            document.getElementById("lactate-value").innerText = val;
+            document.getElementById("lactate-note").innerText = p.note ? `Note: ${p.note}` : "";
+            document.getElementById("lactate-file").innerText = payload.file_path ? `Captured file: ${payload.file_path}` : "";
+        } else {
+            const p = payload.prediction || {};
+            const val = (p.value === null || p.value === undefined) ? "—" : `${p.value} (${p.scale || "scale"})`;
+            document.getElementById("skin-value").innerText = val;
+            document.getElementById("skin-note").innerText = p.note ? `Note: ${p.note}` : "";
+            document.getElementById("skin-file").innerText = payload.file_path ? `Captured file: ${payload.file_path}` : "";
+        }
+    }
+
+    function setButtonsEnabled(enabled) {
+        document.getElementById("btn-lactate").disabled = !enabled;
+        document.getElementById("btn-skin").disabled = !enabled;
+    }
+
+    async function startLactatePrediction() {
+        setButtonsEnabled(false);
+        renderSteps("lactate");
+        setActiveStep("lactate", 0);
+        resetResult("lactate");
+        showSpinner("lactate", true);
+        setProgress("lactate", 0);
+        setCaptureText("lactate", 0, 60);
+
+        const res = await fetch('/predict_lactate', { method: 'POST' });
+        const data = await res.json();
+        if (data.status !== "started") {
+            alert("Failed to start lactate prediction.");
+            setButtonsEnabled(true);
+            showSpinner("lactate", false);
+        }
+    }
+
+    async function startSkinTonePrediction() {
+        setButtonsEnabled(false);
+        renderSteps("skin");
+        setActiveStep("skin", 0);
+        resetResult("skin");
+        showSpinner("skin", true);
+        setProgress("skin", 0);
+        setCaptureText("skin", 0, 60);
+
+        const res = await fetch('/predict_skin_tone', { method: 'POST' });
+        const data = await res.json();
+        if (data.status !== "started") {
+            alert("Failed to start skin tone prediction.");
+            setButtonsEnabled(true);
+            showSpinner("skin", false);
+        }
+    }
+
+    // Live capture timer ticks (from server)
+    socket.on('prediction_capture_tick', (msg) => {
+        if (!msg || !msg.kind) return;
+        setCaptureText(msg.kind, msg.seconds_elapsed, msg.seconds_total);
+
+        // Keep bar moving during capture (0..35%)
+        const pct = Math.min(35, Math.floor((msg.seconds_elapsed / msg.seconds_total) * 35));
+        setProgress(msg.kind, pct);
+    });
+
+    // Workflow steps (from server)
+    socket.on('prediction_progress', (msg) => {
+        if (!msg || !msg.kind) return;
+
+        setActiveStep(msg.kind, msg.step_index);
+
+        // After capture finishes, server-driven percent will take over (35..100)
+        const pct = Math.max(35, msg.percent);
+        setProgress(msg.kind, pct);
+    });
+
+    // Final result (from server)
+    socket.on('prediction_result', (msg) => {
+        if (!msg || !msg.kind) return;
+
+        showSpinner(msg.kind, false);
+
+        if (!msg.ok) {
+            alert((msg.kind === "lactate" ? "Lactate" : "Skin Tone") + " prediction failed: " + (msg.error || "Unknown error"));
+            setButtonsEnabled(true);
+            return;
+        }
+
+        setProgress(msg.kind, 100);
+        showResult(msg.kind, msg);
+        setButtonsEnabled(true);
+    });
 
     window.onload = loadPorts;
 </script>
