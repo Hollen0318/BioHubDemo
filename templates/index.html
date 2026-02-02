@@ -205,24 +205,69 @@
 
     // --- CHARTS ---
     const ctxSpec = document.getElementById('spectrumChart').getContext('2d');
+
+    // Identify which x positions correspond to 1050–1650nm (inclusive)
+    const IR_MIN_WL = 1050;
+    const IR_MAX_WL = 1650;
+    const isIRIndex = (i) => {
+        const wl = SORTED_LEDS[i];
+        return (wl >= IR_MIN_WL && wl <= IR_MAX_WL);
+    };
+
     const spectrumChart = new Chart(ctxSpec, {
         type: 'line',
         data: {
             labels: SORTED_LEDS.map(l => l + "nm"),
-            datasets: [{
-                label: 'Reconstructed Spectrum',
-                data: new Array(17).fill(0),
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.12)',
-                fill: true,
-                tension: 0.3
-            }]
+            datasets: [
+                {
+                    label: 'Reconstructed Spectrum (415–940nm)',
+                    data: new Array(17).fill(0),
+                    yAxisID: 'yVis',
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                    fill: true,
+                    tension: 0.3,
+                    spanGaps: false
+                },
+                {
+                    label: 'Reconstructed Spectrum (1050–1650nm)',
+                    data: new Array(17).fill(0),
+                    yAxisID: 'yIr',
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34, 197, 94, 0.10)',
+                    fill: true,
+                    tension: 0.3,
+                    spanGaps: false
+                }
+            ]
         },
         options: {
             animation: false,
             maintainAspectRatio: false,
             scales: {
-                y: { beginAtZero: true, grid: { color: '#334155' } },
+                yVis: {
+                    type: 'linear',
+                    position: 'left',
+                    beginAtZero: true,
+                    grid: { color: '#334155' },
+                    ticks: {
+                        // more granular than default without getting too dense
+                        stepSize: 2500
+                    }
+                },
+                yIr: {
+                    type: 'linear',
+                    position: 'right',
+                    beginAtZero: true,
+                    max: 950,
+                    grid: {
+                        // don’t draw a second grid on top of the first
+                        drawOnChartArea: false
+                    },
+                    ticks: {
+                        stepSize: 50
+                    }
+                },
                 x: { grid: { color: '#22314a' } }
             },
             plugins: { legend: { labels: { color: '#cbd5e1' } } }
@@ -248,7 +293,8 @@
                     max: 4096,
                     grid: { color: '#334155' },
                     ticks: {
-                        stepSize: 50   // shows 0,100,200,... for higher granularity
+                        // finer tick spacing than before
+                        stepSize: 25
                     }
                 },
                 x: { grid: { color: '#22314a' } }
@@ -282,7 +328,6 @@
     pdTitleRow.appendChild(cellsSpacer);
 
     gridEl.parentElement.insertBefore(pdTitleRow, gridEl);
-
 
     // Store references to fill + text elements per cell: [pdIdx][visualIdx] => {fillEl, textEl}
     const matrixCells = [];
@@ -344,7 +389,17 @@
 
         // 2) Spectrum chart (using target PD mapping)
         const targetPdVal = msg.readings[PD_MAPPING[rawIdx]];
-        spectrumChart.data.datasets[0].data[visualIdx] = targetPdVal;
+
+        // Split across two Y axes:
+        // - 415–940nm -> yVis dataset gets value, yIr gets null
+        // - 1050–1650nm -> yIr dataset gets value, yVis gets null
+        if (isIRIndex(visualIdx)) {
+            spectrumChart.data.datasets[0].data[visualIdx] = null;
+            spectrumChart.data.datasets[1].data[visualIdx] = targetPdVal;
+        } else {
+            spectrumChart.data.datasets[0].data[visualIdx] = targetPdVal;
+            spectrumChart.data.datasets[1].data[visualIdx] = null;
+        }
         spectrumChart.update('none');
 
         // 3) Matrix: fill percentage (no color distinctions)
