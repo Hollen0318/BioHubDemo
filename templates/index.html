@@ -78,6 +78,15 @@
             border: 1px solid #334155;
             white-space: pre;       /* keep lines clean */
         }
+        .axis-title {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .axis-title-led { padding-left: 120px; margin-bottom: 6px; }
+        .axis-title-pd  { width: 90px; text-align: left; }
     </style>
 </head>
 <body class="p-4">
@@ -158,6 +167,7 @@
             <div class="card p-3 mb-3">
                 <h6 class="text-info mb-3">MULTI-WAVELENGTH SIGNAL MATRIX (11 PD x 17 LED)</h6>
                 <div id="matrix-container">
+                    <div class="axis-title axis-title-led">LED (nm) →</div>
                     <div class="d-flex mb-2 matrix-header-pad" id="led-headers"></div>
                     <div id="matrix-grid" class="d-flex flex-column-reverse"></div>
                 </div>
@@ -182,11 +192,14 @@
     // Per your request: each cell has its own range on its y-axis.
     // Here we set a fixed range 0..25500 for all cells.
     const CELL_MIN = 0;
-    const CELL_MAX = 25500;
+    const CELL_MAX_DEFAULT = 25500;
+    const IR_PD_INDEX = 10;          // PD_LABELS index for "Infrared"
+    const IR_CELL_MAX = 950;         // requested scale for Infrared
 
     function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
-    function pct(val) {
-        const p = ((val - CELL_MIN) / (CELL_MAX - CELL_MIN)) * 100;
+    function pctForPd(val, pdIdx) {
+        const max = (pdIdx === IR_PD_INDEX) ? IR_CELL_MAX : CELL_MAX_DEFAULT;
+        const p = ((val - CELL_MIN) / (max - CELL_MIN)) * 100;
         return clamp(p, 0, 100);
     }
 
@@ -231,7 +244,13 @@
             animation: false,
             maintainAspectRatio: false,
             scales: {
-                y: { max: 4096, grid: { color: '#334155' } },
+                y: {
+                    max: 4096,
+                    grid: { color: '#334155' },
+                    ticks: {
+                        stepSize: 50   // shows 0,100,200,... for higher granularity
+                    }
+                },
                 x: { grid: { color: '#22314a' } }
             },
             plugins: { legend: { labels: { color: '#cbd5e1' } } }
@@ -241,6 +260,29 @@
     // --- MATRIX ---
     const gridEl = document.getElementById('matrix-grid');
     const headerEl = document.getElementById('led-headers');
+
+    // PD axis title row (left side)
+    const pdTitleRow = document.createElement('div');
+    pdTitleRow.className = "d-flex align-items-center mb-1";
+
+    const pdTitle = document.createElement('div');
+    pdTitle.className = "pd-label axis-title";
+    pdTitle.innerText = "PD ↑";
+    pdTitleRow.appendChild(pdTitle);
+
+    // spacer to align with range-label column
+    const rangeSpacer = document.createElement('div');
+    rangeSpacer.className = "range-label";
+    rangeSpacer.innerText = ""; 
+    pdTitleRow.appendChild(rangeSpacer);
+
+    // spacer to align with matrix cells
+    const cellsSpacer = document.createElement('div');
+    cellsSpacer.style.flex = "1";
+    pdTitleRow.appendChild(cellsSpacer);
+
+    gridEl.parentElement.insertBefore(pdTitleRow, gridEl);
+
 
     // Store references to fill + text elements per cell: [pdIdx][visualIdx] => {fillEl, textEl}
     const matrixCells = [];
@@ -266,7 +308,7 @@
         // y-axis range label per row (requested)
         const range = document.createElement('div');
         range.className = "range-label";
-        range.innerText = "0–25500";
+        range.innerText = (pdIdx === IR_PD_INDEX) ? "0–950" : "0–25500";
         row.appendChild(range);
 
         const rowCells = [];
@@ -307,7 +349,7 @@
 
         // 3) Matrix: fill percentage (no color distinctions)
         msg.readings.forEach((val, pdIdx) => {
-            const p = pct(val);
+            const p = pctForPd(val, pdIdx);
             const cell = matrixCells[pdIdx][visualIdx];
             cell.fillEl.style.height = p.toFixed(1) + "%";
             cell.textEl.innerText = Math.round(p) + "%";
