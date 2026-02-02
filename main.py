@@ -1,3 +1,4 @@
+# main.py
 import os
 import threading
 import time
@@ -36,16 +37,18 @@ class LumosCore:
             # Expected: 00-00-04.094,0,0,0,1,0,0,0,0,0,1,167,[0],1000;
             clean = line.strip().rstrip(';')
             parts = clean.split(',')
-            if len(parts) < 14: return None
-            
+            if len(parts) < 14:
+                return None
+
             return {
                 "boot_time": parts[0],
                 "readings": [int(x) for x in parts[1:12]],
                 "led_idx": int(parts[12].strip('[]')),
                 "intensity": int(parts[13]),
-                "raw": line # Keep raw for the log
+                "raw": line
             }
-        except: return None
+        except:
+            return None
 
     def _read_worker(self):
         while self.running:
@@ -75,7 +78,8 @@ class LumosCore:
 
     def stop_and_save(self):
         self.recording = False
-        if not self.buffer: return None
+        if not self.buffer:
+            return None
         folder = "Lumos_Records"
         os.makedirs(folder, exist_ok=True)
         fname = f"Recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
@@ -99,7 +103,8 @@ def get_ports():
 @app.route('/connect', methods=['POST'])
 def connect():
     port = request.json.get('port')
-    if lumos.connect(port): return jsonify({"status": "connected"})
+    if lumos.connect(port):
+        return jsonify({"status": "connected"})
     return jsonify({"status": "failed"})
 
 @app.route('/record', methods=['POST'])

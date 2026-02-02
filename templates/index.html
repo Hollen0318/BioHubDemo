@@ -1,26 +1,98 @@
+<!-- templates/index.html -->
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Lumos | Bio-Sensing Dashboard</title>
+    <title>OptiLact Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; overflow-x: hidden; }
         .card { background: #1e293b; border: 1px solid #334155; color: white; border-radius: 12px; }
-        #log-window { height: 180px; background: #000; color: #10b981; font-family: monospace; font-size: 0.75rem; overflow-y: auto; padding: 10px; border-radius: 8px; border: 1px solid #334155; }
-        .metric-label { font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; }
-        .matrix-cell { flex: 1; height: 24px; margin: 1px; border-radius: 2px; transition: background 0.1s; background: #0f172a; }
-        .pd-label { width: 80px; font-size: 0.7rem; color: #94a3b8; font-weight: bold; }
-        .led-label { font-size: 0.6rem; text-align: center; color: #64748b; transform: rotate(-45deg); height: 30px; }
+
+        /* Header */
+        .brand-title { font-weight: 700; letter-spacing: 0.2px; }
+        .topbar { align-items: center; }
+
+        /* Device specs "table" */
+        .spec-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .spec-table td { padding: 6px 0; border-bottom: 1px solid #334155; vertical-align: top; }
+        .spec-key { color: #94a3b8; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.08em; width: 42%; }
+        .spec-val { color: #e2e8f0; }
+        .spec-table tr:last-child td { border-bottom: none; }
+
+        /* Charts sizing */
+        .chart-tall canvas { width: 100% !important; }
+        /* NOTE: Chart.js respects the element's height if maintainAspectRatio=false */
+        .chart-wrap { position: relative; height: 260px; }
+        .chart-wrap-sm { position: relative; height: 160px; }
+
+        /* Matrix */
+        .matrix-header-pad { padding-left: 120px; }
+        .pd-label { width: 90px; font-size: 0.75rem; color: #94a3b8; font-weight: 700; }
+        .range-label { width: 70px; font-size: 0.7rem; color: #64748b; text-align: right; padding-right: 8px; }
+        .led-label { font-size: 0.65rem; text-align: center; color: #64748b; transform: rotate(-45deg); height: 34px; }
+
+        .matrix-cell {
+            position: relative;
+            flex: 1;
+            height: 38px;            /* larger */
+            margin: 2px;
+            border-radius: 6px;
+            background: #0b1220;
+            border: 1px solid #22314a;
+            overflow: hidden;
+        }
+        .cell-fill {
+            position: absolute;
+            left: 0; bottom: 0;
+            width: 100%;
+            height: 0%;
+            background: #3b82f6;     /* single color */
+            opacity: 0.9;
+            transition: height 0.08s linear;
+        }
+        .cell-text {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.75rem;
+            color: #e2e8f0;
+            text-shadow: 0 1px 0 rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+
+        /* Log */
+        #log-window {
+            height: 260px; /* bigger */
+            background: #000;
+            color: #10b981;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.85rem;
+            overflow-y: auto;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            white-space: pre;       /* keep lines clean */
+        }
     </style>
 </head>
 <body class="p-4">
 
 <div class="container-fluid">
-    <div class="row mb-3">
-        <div class="col-md-4"><h2>LUMOS <span class="badge bg-primary">V3</span></h2></div>
-        <div class="col-md-8 d-flex gap-2 justify-content-end">
+    <div class="row mb-3 topbar">
+        <div class="col-md-4"></div>
+
+        <!-- Center title -->
+        <div class="col-md-4 text-center">
+            <h2 class="brand-title m-0">OptiLact Dashboard</h2>
+        </div>
+
+        <!-- Keep controls as-is (layout only) -->
+        <div class="col-md-4 d-flex gap-2 justify-content-end">
             <select id="port-list" class="form-select w-auto bg-dark text-white border-secondary"></select>
             <button class="btn btn-primary" onclick="connectDevice()">Connect</button>
             <button id="rec-btn" class="btn btn-outline-danger" onclick="toggleRecord()" disabled>Start Record</button>
@@ -28,32 +100,72 @@
     </div>
 
     <div class="row">
+        <!-- Left: device info -->
         <div class="col-md-3">
             <div class="card p-3 mb-3">
-                <h6>DEVICE SPECS</h6>
-                <div class="mb-2"><div class="metric-label">Serial ID</div><div>{{info.sn}}</div></div>
-                <div class="mb-2"><div class="metric-label">Battery</div><div class="text-success">{{info.battery}}</div></div>
-                <div class="mb-2"><div class="metric-label">Uptime</div><div id="boot-time">00-00-00.000</div></div>
-            </div>
-            <div class="card p-3 mb-3">
-                <h6>SERIAL LOG (RAW)</h6>
-                <div id="log-window"></div>
+                <h6 class="mb-3">DEVICE INFO</h6>
+                <table class="spec-table">
+                    <tr>
+                        <td class="spec-key">Serial ID</td>
+                        <td class="spec-val">{{info.sn}}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-key">Device ID</td>
+                        <td class="spec-val">{{info.id}}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-key">Manufacturer</td>
+                        <td class="spec-val">{{info.mfg}}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-key">Programmed</td>
+                        <td class="spec-val">{{info.programmed}}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-key">Storage</td>
+                        <td class="spec-val">{{info.storage}}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-key">User</td>
+                        <td class="spec-val">{{info.user}}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-key">Battery</td>
+                        <td class="spec-val text-success fw-semibold">{{info.battery}}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-key">Uptime</td>
+                        <td class="spec-val" id="boot-time">00-00-00.000</td>
+                    </tr>
+                </table>
             </div>
         </div>
 
+        <!-- Right: charts + matrix + log -->
         <div class="col-md-9">
+            <div class="card p-3 mb-3 chart-tall">
+                <h6 class="text-info mb-3">ABSORBANCE &amp; INTENSITY SPECTRUM</h6>
+
+                <div class="chart-wrap">
+                    <canvas id="spectrumChart"></canvas>
+                </div>
+
+                <div class="chart-wrap-sm mt-3">
+                    <canvas id="intensityChart"></canvas>
+                </div>
+            </div>
+
             <div class="card p-3 mb-3">
-                <h6 class="text-info">ABSORBANCE & INTENSITY SPECTRUM</h6>
-                <canvas id="spectrumChart" height="90"></canvas>
-                <canvas id="intensityChart" height="50" class="mt-2"></canvas>
+                <h6 class="text-info mb-3">MULTI-WAVELENGTH SIGNAL MATRIX (11 PD x 17 LED)</h6>
+                <div id="matrix-container">
+                    <div class="d-flex mb-2 matrix-header-pad" id="led-headers"></div>
+                    <div id="matrix-grid" class="d-flex flex-column-reverse"></div>
+                </div>
             </div>
 
             <div class="card p-3">
-                <h6 class="text-info mb-3">MULTI-WAVELENGTH SIGNAL MATRIX (11 PD x 17 LED)</h6>
-                <div id="matrix-container">
-                    <div class="d-flex mb-2" id="led-headers" style="padding-left: 80px;"></div>
-                    <div id="matrix-grid" class="d-flex flex-column-reverse"></div>
-                </div>
+                <h6 class="mb-3">SERIAL LOG (RAW)</h6>
+                <div id="log-window"></div>
             </div>
         </div>
     </div>
@@ -61,29 +173,47 @@
 
 <script>
     const socket = io();
+
     const LED_WAVELENGTHS = [1650, 1550, 1450, 1300, 1250, 1050, 940, 850, 660, 633, 599, 567, 530, 500, 470, 450, 415];
     const SORTED_LEDS = [...LED_WAVELENGTHS].reverse(); // 415 -> 1650
     const PD_LABELS = ["415nm", "445nm", "480nm", "515nm", "555nm", "590nm", "630nm", "680nm", "910nm", "Clear", "Infrared"];
     const PD_MAPPING = [10, 10, 10, 10, 10, 10, 8, 8, 7, 6, 5, 4, 3, 3, 2, 1, 0];
 
-    // --- UTILITY: Dual Scale Normalization ---
-    function normalize(val, wavelength) {
-        if (wavelength >= 1050) {
-            // Scale 0-25500 down to 0-950
-            return (val / 25500) * 950;
-        }
-        return val; // Keep 0-25500 for visible range
+    // Per your request: each cell has its own range on its y-axis.
+    // Here we set a fixed range 0..25500 for all cells.
+    const CELL_MIN = 0;
+    const CELL_MAX = 25500;
+
+    function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+    function pct(val) {
+        const p = ((val - CELL_MIN) / (CELL_MAX - CELL_MIN)) * 100;
+        return clamp(p, 0, 100);
     }
 
-    // --- INITIALIZE CHARTS ---
+    // --- CHARTS ---
     const ctxSpec = document.getElementById('spectrumChart').getContext('2d');
     const spectrumChart = new Chart(ctxSpec, {
         type: 'line',
         data: {
             labels: SORTED_LEDS.map(l => l + "nm"),
-            datasets: [{ label: 'Reconstructed Spectrum', data: new Array(17).fill(0), borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 }]
+            datasets: [{
+                label: 'Reconstructed Spectrum',
+                data: new Array(17).fill(0),
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                fill: true,
+                tension: 0.3
+            }]
         },
-        options: { animation: false, scales: { y: { beginAtZero: true, grid: { color: '#334155' } } } }
+        options: {
+            animation: false,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#334155' } },
+                x: { grid: { color: '#22314a' } }
+            },
+            plugins: { legend: { labels: { color: '#cbd5e1' } } }
+        }
     });
 
     const ctxInt = document.getElementById('intensityChart').getContext('2d');
@@ -91,17 +221,31 @@
         type: 'bar',
         data: {
             labels: SORTED_LEDS.map(l => l + "nm"),
-            datasets: [{ label: 'LED Intensity (PWM)', data: new Array(17).fill(0), backgroundColor: '#a855f7' }]
+            datasets: [{
+                label: 'LED Intensity (PWM)',
+                data: new Array(17).fill(0),
+                backgroundColor: '#a855f7'
+            }]
         },
-        options: { animation: false, scales: { y: { max: 4096, grid: { color: '#334155' } } } }
+        options: {
+            animation: false,
+            maintainAspectRatio: false,
+            scales: {
+                y: { max: 4096, grid: { color: '#334155' } },
+                x: { grid: { color: '#22314a' } }
+            },
+            plugins: { legend: { labels: { color: '#cbd5e1' } } }
+        }
     });
 
-    // --- INITIALIZE MATRIX ---
+    // --- MATRIX ---
     const gridEl = document.getElementById('matrix-grid');
     const headerEl = document.getElementById('led-headers');
-    const matrixCells = []; // 2D Reference [pd_idx][visual_led_idx]
 
-    // Create LED Labels at top
+    // Store references to fill + text elements per cell: [pdIdx][visualIdx] => {fillEl, textEl}
+    const matrixCells = [];
+
+    // LED header labels
     SORTED_LEDS.forEach(wl => {
         const div = document.createElement('div');
         div.className = "flex-grow-1 led-label";
@@ -109,53 +253,67 @@
         headerEl.appendChild(div);
     });
 
-    // Create PD Rows (Bottom to Top)
+    // Create PD rows (bottom to top)
     PD_LABELS.forEach((pdName, pdIdx) => {
         const row = document.createElement('div');
         row.className = "d-flex align-items-center";
+
         const label = document.createElement('div');
         label.className = "pd-label";
         label.innerText = pdName;
         row.appendChild(label);
 
+        // y-axis range label per row (requested)
+        const range = document.createElement('div');
+        range.className = "range-label";
+        range.innerText = "0–25500";
+        row.appendChild(range);
+
         const rowCells = [];
         SORTED_LEDS.forEach(() => {
             const cell = document.createElement('div');
             cell.className = "matrix-cell";
+
+            const fill = document.createElement('div');
+            fill.className = "cell-fill";
+            cell.appendChild(fill);
+
+            const txt = document.createElement('div');
+            txt.className = "cell-text";
+            txt.innerText = "0%";
+            cell.appendChild(txt);
+
             row.appendChild(cell);
-            rowCells.push(cell);
+            rowCells.push({ fillEl: fill, textEl: txt });
         });
+
         gridEl.appendChild(row);
         matrixCells.push(rowCells);
     });
 
     // --- DATA HANDLING ---
     socket.on('data_update', (msg) => {
-        const rawIdx = msg.led_idx; // 0 (1650) to 16 (415)
-        const currentWl = LED_WAVELENGTHS[rawIdx];
-        const visualIdx = 16 - rawIdx; // Map to 0 (415) to 16 (1650)
+        const rawIdx = msg.led_idx;               // 0 (1650) to 16 (415)
+        const visualIdx = 16 - rawIdx;            // 0 (415) to 16 (1650)
 
-        // 1. Update Intensity (Show for all)
+        // 1) Intensity chart
         intensityChart.data.datasets[0].data[visualIdx] = msg.intensity;
         intensityChart.update('none');
 
-        // 2. Update Spectrum (Using normalized target PD)
+        // 2) Spectrum chart (using target PD mapping)
         const targetPdVal = msg.readings[PD_MAPPING[rawIdx]];
-        spectrumChart.data.datasets[0].data[visualIdx] = normalize(targetPdVal, currentWl);
+        spectrumChart.data.datasets[0].data[visualIdx] = targetPdVal;
         spectrumChart.update('none');
 
-        // 3. Update Matrix Grid
+        // 3) Matrix: fill percentage (no color distinctions)
         msg.readings.forEach((val, pdIdx) => {
-            const scaled = normalize(val, currentWl);
-            const limit = currentWl >= 1050 ? 950 : 25500;
-            const opacity = Math.min(scaled / limit, 1.0);
-            
-            // NIR LEDs (1050+) show Red heatmap, Visible show Blue heatmap
-            const color = currentWl >= 1050 ? `rgba(239, 68, 68, ${opacity})` : `rgba(59, 130, 246, ${opacity})`;
-            matrixCells[pdIdx][visualIdx].style.background = color;
+            const p = pct(val);
+            const cell = matrixCells[pdIdx][visualIdx];
+            cell.fillEl.style.height = p.toFixed(1) + "%";
+            cell.textEl.innerText = Math.round(p) + "%";
         });
 
-        // 4. Update UI
+        // 4) UI
         document.getElementById('boot-time').innerText = msg.boot_time;
         updateLog(msg.raw);
     });
@@ -165,10 +323,10 @@
         const line = document.createElement('div');
         line.innerText = txt;
         log.prepend(line);
-        if(log.childNodes.length > 50) log.lastChild.remove();
+        if (log.childNodes.length > 200) log.lastChild.remove();
     }
 
-    // Port Management
+    // Port Management (unchanged behavior)
     async function loadPorts() {
         const res = await fetch('/get_ports');
         const data = await res.json();
@@ -180,7 +338,7 @@
         const port = document.getElementById('port-list').value;
         const res = await fetch('/connect', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({port}) });
         const data = await res.json();
-        if(data.status === 'connected') {
+        if (data.status === 'connected') {
             document.getElementById('rec-btn').disabled = false;
             alert("Connected!");
         }
@@ -193,7 +351,7 @@
         const data = await res.json();
         btn.innerText = action === "start" ? "Stop Record" : "Start Record";
         btn.className = action === "start" ? "btn btn-danger" : "btn btn-outline-danger";
-        if(action === "stop") alert("File: " + data.path);
+        if (action === "stop") alert("File: " + data.path);
     }
 
     window.onload = loadPorts;
