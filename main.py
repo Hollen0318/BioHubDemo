@@ -59,7 +59,8 @@ def lactatePrediction(recorded_lines):
     return {
         "value": round(lactate, 2),
         "units": "mmol/L",
-        "note": "Placeholder estimate (replace with ML model)."
+        # "note": "Placeholder estimate (replace with ML model)."
+        "note": "Reference only."
     }
 
 def skinTonePrediction(recorded_lines):
@@ -98,7 +99,8 @@ def skinTonePrediction(recorded_lines):
     return {
         "value": f"Type {t}",
         "scale": "Fitzpatrick",
-        "note": "Placeholder classification (replace with ML model)."
+        # "note": "Placeholder classification (replace with ML model)."
+        "note": "Reference only."
     }
 
 class LumosCore:
