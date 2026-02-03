@@ -9,6 +9,11 @@
     <style>
         body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; overflow-x: hidden; }
         .card { background: #1e293b; border: 1px solid #334155; color: white; border-radius: 12px; }
+        .brand-logo {
+            height: 100px;
+            width: auto;
+            /* margin-right: 10px; */
+        }
 
         /* Header */
         .brand-title { font-weight: 700; letter-spacing: 0.2px; }
@@ -194,7 +199,14 @@
 
 <div class="container-fluid">
     <div class="row mb-3 topbar">
-        <div class="col-md-4"></div>
+        <!-- Left: logo -->
+        <div class="col-md-4 d-flex align-items-center">
+        <img
+            src="{{ url_for('static', filename='logo2.png') }}"
+            alt="Watson Research Lab"
+            class="brand-logo">
+        </div>
+
 
         <!-- Center title -->
         <div class="col-md-4 text-center">
