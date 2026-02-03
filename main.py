@@ -14,11 +14,11 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 DEVICE_INFO = {
     "programmed": "Feb 2, 2026",
     "storage": "512MB",
-    "battery": "93%",
+    "battery": "88%",
     "user": "BioHub Demo",
-    "id": "P17E",
+    "id": "P17F",
     "mfg": "Watson Research Lab",
-    "sn": "SZL-6792"
+    "sn": "SZL-6791"
 }
 
 # -------------------------
