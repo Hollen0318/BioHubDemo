@@ -1,6 +1,7 @@
 # main.py
 import os
 import threading
+import argparse
 import time
 import serial
 import serial.tools.list_ports
@@ -346,4 +347,10 @@ def predict_skin_tone():
     return jsonify({"status": "started"})
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, port=5001)
+    parser = argparse.ArgumentParser(description="Lumos Flask/SocketIO server")
+    parser.add_argument('--port', type=int, default=5002, help='Port to run the server on')
+    parser.add_argument('--host', type=str, default='0.0.0.0', help='Host/interface to bind')
+    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+    args = parser.parse_args()
+
+    socketio.run(app, host=args.host, debug=args.debug, port=args.port)
