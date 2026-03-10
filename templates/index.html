@@ -393,7 +393,7 @@
     const CELL_MIN = 0;
     const CELL_MAX_DEFAULT = 25500;
     const IR_PD_INDEX = 10;          // PD_LABELS index for "Infrared"
-    const IR_CELL_MAX = 950;         // requested scale for Infrared
+    const IR_CELL_MAX = 5000;         // requested scale for Infrared
 
     function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
     function pctForPd(val, pdIdx) {
@@ -458,7 +458,7 @@
                     type: 'linear',
                     position: 'right',
                     beginAtZero: true,
-                    max: 950,
+                    max: 5000,
                     grid: {
                         // don’t draw a second grid on top of the first
                         drawOnChartArea: false
@@ -552,7 +552,7 @@
         // y-axis range label per row (requested)
         const range = document.createElement('div');
         range.className = "range-label";
-        range.innerText = (pdIdx === IR_PD_INDEX) ? "0–950" : "0–25500";
+        range.innerText = (pdIdx === IR_PD_INDEX) ? "0–5000" : "0–25500";
         row.appendChild(range);
 
         const rowCells = [];
