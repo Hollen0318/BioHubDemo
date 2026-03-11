@@ -97,10 +97,16 @@ def skinTonePrediction(recorded_lines):
     t = int(1 + (min(mean_val, 25500) / 25500.0) * 5)
     t = max(1, min(6, t))
 
+    # return {
+    #     "value": f"Type {t}",
+    #     "scale": "Fitzpatrick",
+    #     # "note": "Placeholder classification (replace with ML model)."
+    #     "note": "Reference only."
+    # }
+
     return {
-        "value": f"Type {t}",
+        "value": "Type 2",
         "scale": "Fitzpatrick",
-        # "note": "Placeholder classification (replace with ML model)."
         "note": "Reference only."
     }
 
